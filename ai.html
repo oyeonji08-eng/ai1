@@ -1,0 +1,2075 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 문제 생성기 - 스마트 맞춤형 시험 대비 플랫폼</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Pretendard / Inter 폰트 -->
+    <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PDF.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Pretendard', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+                    },
+                    colors: {
+                        pastelBlue: {
+                            50: '#F0F8FF',
+                            100: '#E0F1FF',
+                            200: '#BAE0FF',
+                            300: '#A5D8FF',
+                            400: '#74C0FC',
+                            500: '#4DABF7',
+                            600: '#339AF0',
+                        },
+                        pastelPurple: {
+                            50: '#F8F5FF',
+                            100: '#F1EAFF',
+                            200: '#E2D4FF',
+                            300: '#D0BFFF',
+                            400: '#B197FC',
+                            500: '#9775FA',
+                            600: '#845EF7',
+                        }
+                    },
+                    boxShadow: {
+                        'soft': '0 10px 30px -5px rgba(177, 151, 252, 0.14), 0 4px 12px -2px rgba(116, 192, 252, 0.10)',
+                        'card': '0 4px 20px -2px rgba(148, 163, 184, 0.08)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #FAFBFD;
+            color: #1E293B;
+            overflow-x: hidden;
+        }
+        .pastel-gradient {
+            background: linear-gradient(135deg, #74C0FC 0%, #B197FC 100%);
+        }
+        .pastel-gradient-soft {
+            background: linear-gradient(135deg, rgba(165, 216, 255, 0.22) 0%, rgba(208, 191, 255, 0.25) 100%);
+        }
+        .pastel-border-gradient {
+            border: 1.5px solid transparent;
+            background-image: linear-gradient(#ffffff, #ffffff), linear-gradient(135deg, #74C0FC, #B197FC);
+            background-origin: border-box;
+            background-clip: padding-box, border-box;
+        }
+        /* 커스텀 스크롤바 */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #F1F5F9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #CBD5E1;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #B197FC;
+        }
+        /* 레인지 슬라이더 커스텀 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 999px;
+            background: linear-gradient(90deg, #A5D8FF 0%, #D0BFFF 100%);
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -6px;
+            background-color: #ffffff;
+            border: 3px solid #9775FA;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(151, 117, 250, 0.35);
+            transition: transform 0.15s ease;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.12);
+        }
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(177, 151, 252, 0.4); }
+            50% { box-shadow: 0 0 0 10px rgba(177, 151, 252, 0); }
+        }
+        .animate-pulse-glow {
+            animation: pulseGlow 2s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-pastelPurple-200 selection:text-slate-900">
+
+    <!-- 글로벌 알림 토스트 컨테이너 (alert 대체) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-[100] flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+    <!-- 커스텀 확인 모달 (confirm 대체) -->
+    <div id="confirm-modal" class="fixed inset-0 z-[90] hidden items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-pastelPurple-100 transform transition-all">
+            <div class="flex items-center gap-3 mb-3">
+                <div class="w-10 h-10 rounded-2xl pastel-gradient-soft flex items-center justify-center text-pastelPurple-600">
+                    <i data-lucide="help-circle" class="w-5 h-5"></i>
+                </div>
+                <h3 id="confirm-title" class="text-lg font-bold text-slate-800">확인</h3>
+            </div>
+            <p id="confirm-message" class="text-slate-600 text-sm leading-relaxed mb-6">정말 진행하시겠습니까?</p>
+            <div class="flex justify-end gap-2.5">
+                <button id="confirm-cancel-btn" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">취소</button>
+                <button id="confirm-ok-btn" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white pastel-gradient hover:opacity-95 shadow-sm transition">확인</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 시험지 / 응시기록 편집 모달 -->
+    <div id="edit-modal" class="fixed inset-0 z-[85] hidden items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-pastelBlue-200">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="edit-modal-title" class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="edit-3" class="w-5 h-5 text-pastelPurple-500"></i>
+                    <span>항목 편집</span>
+                </h3>
+                <button onclick="closeEditModal()" class="p-1.5 rounded-xl text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">제목</label>
+                    <input type="text" id="edit-input-title" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-sm font-medium">
+                </div>
+                <div id="edit-category-wrapper">
+                    <label class="block text-xs font-semibold text-slate-500 mb-1.5">분류 카테고리</label>
+                    <select id="edit-input-category" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-sm font-medium bg-white"></select>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2.5 mt-6">
+                <button onclick="closeEditModal()" class="px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition">취소</button>
+                <button id="edit-save-btn" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white pastel-gradient hover:opacity-95 shadow-sm transition">저장하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 시험 응시 중 우측 상단 플로팅 타이머 (요구사항 8번) -->
+    <div id="floating-timer" class="fixed top-4 right-4 z-[70] hidden items-center gap-3 bg-white/95 backdrop-blur-md px-4 py-2.5 rounded-2xl shadow-soft pastel-border-gradient transition-all">
+        <div class="w-8 h-8 rounded-xl pastel-gradient flex items-center justify-center text-white shrink-0">
+            <i data-lucide="timer" class="w-4 h-4"></i>
+        </div>
+        <div>
+            <div class="text-[10px] font-bold uppercase tracking-wider text-pastelPurple-600">문제풀이 시간</div>
+            <div id="timer-display" class="text-base sm:text-lg font-extrabold font-mono text-slate-800 leading-tight">00:00:00</div>
+        </div>
+    </div>
+
+    <!-- 상단 네비게이션 헤더 -->
+    <header id="main-header" class="sticky top-0 z-50 bg-white/85 backdrop-blur-md border-b border-slate-100">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16 sm:h-18">
+                <!-- 로고 & 사이트 이름: AI 문제 생성기 -->
+                <div class="flex items-center gap-3 cursor-pointer" onclick="switchTab('generator')">
+                    <div class="w-10 h-10 rounded-2xl pastel-gradient flex items-center justify-center text-white shadow-sm">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg sm:text-xl font-extrabold tracking-tight bg-gradient-to-r from-pastelBlue-600 to-pastelPurple-600 bg-clip-text text-transparent">
+                            AI 문제 생성기
+                        </h1>
+                        <p class="hidden sm:block text-[11px] text-slate-400 font-medium">PDF 기반 맞춤형 예상문제 · 분석 · 오답노트</p>
+                    </div>
+                </div>
+
+                <!-- 데스크톱 내비게이션 탭 -->
+                <nav class="hidden md:flex items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl">
+                    <button onclick="switchTab('generator')" data-tab="generator" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                        <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+                        <span>문제 생성</span>
+                    </button>
+                    <button onclick="switchTab('exams')" data-tab="exams" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                        <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                        <span>내 시험지 & 분류</span>
+                        <span id="badge-exams" class="px-1.5 py-0.5 text-[11px] rounded-full bg-pastelBlue-100 text-pastelBlue-600 font-bold">0</span>
+                    </button>
+                    <button onclick="switchTab('history')" data-tab="history" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        <span>응시기록 & 분석</span>
+                        <span id="badge-history" class="px-1.5 py-0.5 text-[11px] rounded-full bg-pastelPurple-100 text-pastelPurple-600 font-bold">0</span>
+                    </button>
+                    <button onclick="switchTab('wrong-notes')" data-tab="wrong-notes" class="nav-btn flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition">
+                        <i data-lucide="bookmark-x" class="w-4 h-4"></i>
+                        <span>오답노트</span>
+                        <span id="badge-wrong" class="px-1.5 py-0.5 text-[11px] rounded-full bg-rose-100 text-rose-600 font-bold">0</span>
+                    </button>
+                </nav>
+
+                <!-- 모바일 메뉴 토글 -->
+                <div class="flex md:hidden items-center gap-2">
+                    <button onclick="switchTab('wrong-notes')" class="relative p-2.5 rounded-xl bg-pastelPurple-50 text-pastelPurple-600">
+                        <i data-lucide="bookmark-x" class="w-5 h-5"></i>
+                        <span id="mobile-badge-wrong" class="absolute -top-1 -right-1 w-4 h-4 text-[10px] flex items-center justify-center rounded-full bg-rose-500 text-white font-bold">0</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 모바일 하단/서브 탭 바 -->
+        <div class="md:hidden border-t border-slate-100 bg-white px-2 py-1.5 flex justify-around">
+            <button onclick="switchTab('generator')" data-tab="generator" class="mobile-nav-btn flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl text-xs font-semibold">
+                <i data-lucide="file-plus-2" class="w-4 h-4"></i>
+                <span>문제 생성</span>
+            </button>
+            <button onclick="switchTab('exams')" data-tab="exams" class="mobile-nav-btn flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl text-xs font-semibold">
+                <i data-lucide="folder-kanban" class="w-4 h-4"></i>
+                <span>내 시험지</span>
+            </button>
+            <button onclick="switchTab('history')" data-tab="history" class="mobile-nav-btn flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl text-xs font-semibold">
+                <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                <span>응시기록</span>
+            </button>
+            <button onclick="switchTab('wrong-notes')" data-tab="wrong-notes" class="mobile-nav-btn flex flex-col items-center gap-1 py-1.5 px-3 rounded-xl text-xs font-semibold">
+                <i data-lucide="bookmark-x" class="w-4 h-4"></i>
+                <span>오답노트</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 영역 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+
+        <!-- ========================================================= -->
+        <!-- 1. AI 문제 생성 뷰 (다중 PDF 업로드 & 맞춤 옵션) -->
+        <!-- ========================================================= -->
+        <section id="view-generator" class="tab-view space-y-6">
+            <!-- 상단 히어로 배너 -->
+            <div class="rounded-3xl pastel-gradient-soft border border-pastelBlue-200/60 p-6 sm:p-8 relative overflow-hidden">
+                <div class="relative z-10 max-w-3xl">
+                    <div class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/90 text-pastelPurple-600 text-xs font-bold mb-3 shadow-2xs">
+                        <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>
+                        <span>다중 PDF 분석 및 과목별 맞춤 출제 엔진</span>
+                    </div>
+                    <h2 class="text-2xl sm:text-3xl font-extrabold text-slate-800 tracking-tight mb-2">
+                        강의자료 PDF만 올리면 <span class="bg-gradient-to-r from-pastelBlue-600 to-pastelPurple-600 bg-clip-text text-transparent">실전 예상문제</span>가 완성됩니다
+                    </h2>
+                    <p class="text-sm sm:text-base text-slate-600 leading-relaxed">
+                        여러 개의 PDF 파일을 한 번에 업로드하세요. <strong>수학 과목</strong>은 숫자와 문제 유형을 변형하여 출제하고, <strong>전공·교양·자격증 등 일반 과목</strong>은 핵심 개념 빈칸 채우기 및 서술형 문제로 출제합니다.
+                    </p>
+                </div>
+                <!-- 장식 요소 -->
+                <div class="hidden lg:block absolute -right-8 -bottom-10 w-64 h-64 rounded-full bg-pastelBlue-300/20 blur-2xl"></div>
+                <div class="hidden lg:block absolute right-24 -top-10 w-48 h-48 rounded-full bg-pastelPurple-300/25 blur-2xl"></div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- 좌측: 다중 PDF 업로드 및 텍스트 추출 영역 -->
+                <div class="lg:col-span-7 space-y-5">
+                    <div class="bg-white rounded-3xl p-6 shadow-card border border-slate-100">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-xl bg-pastelBlue-100 text-pastelBlue-600 flex items-center justify-center text-sm font-extrabold">1</span>
+                                학습 자료 업로드 (다중 PDF 지원)
+                            </h3>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" onclick="loadSampleData('math')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-pastelBlue-50 text-pastelBlue-600 hover:bg-pastelBlue-100 transition">
+                                    샘플: 미적분학(수학)
+                                </button>
+                                <button type="button" onclick="loadSampleData('general')" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-pastelPurple-50 text-pastelPurple-600 hover:bg-pastelPurple-100 transition">
+                                    샘플: 전공/자격증
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- 드래그 앤 드롭 존 -->
+                        <div id="drop-zone" class="border-2 border-dashed border-pastelBlue-300 hover:border-pastelPurple-400 bg-pastelBlue-50/30 hover:bg-pastelPurple-50/30 rounded-2xl p-6 sm:p-8 text-center transition cursor-pointer group">
+                            <input type="file" id="pdf-file-input" accept=".pdf" multiple class="hidden">
+                            <div class="w-14 h-14 mx-auto rounded-2xl bg-white shadow-soft flex items-center justify-center text-pastelPurple-500 group-hover:scale-105 transition mb-3">
+                                <i data-lucide="files" class="w-7 h-7"></i>
+                            </div>
+                            <p class="text-sm sm:text-base font-bold text-slate-700 mb-1">
+                                여러 개의 PDF 파일을 드래그하거나 클릭하여 선택하세요
+                            </p>
+                            <p class="text-xs text-slate-400">
+                                복수 파일 동시 업로드 가능 · PDF 내 텍스트를 자동으로 추출해 통합 분석합니다
+                            </p>
+                        </div>
+
+                        <!-- 업로드된 파일 목록 -->
+                        <div id="uploaded-files-container" class="hidden mt-4 space-y-2">
+                            <div class="flex items-center justify-between text-xs font-semibold text-slate-500 px-1">
+                                <span>첨부된 파일 (<span id="file-count">0</span>개)</span>
+                                <button type="button" onclick="clearAllFiles()" class="text-rose-500 hover:underline">전체 삭제</button>
+                            </div>
+                            <div id="uploaded-files-list" class="space-y-2 max-h-44 overflow-y-auto pr-1"></div>
+                        </div>
+
+                        <!-- 추출된 텍스트 미리보기 / 직접 입력 토글 -->
+                        <div class="mt-5 pt-4 border-t border-slate-100">
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="source-text-input" class="text-xs font-bold text-slate-600 flex items-center gap-1.5">
+                                    <i data-lucide="file-text" class="w-3.5 h-3.5 text-pastelBlue-500"></i>
+                                    추출된 학습 내용 (직접 수정 및 붙여넣기 가능)
+                                </label>
+                                <span id="char-count" class="text-[11px] font-medium text-slate-400">0자</span>
+                            </div>
+                            <textarea id="source-text-input" rows="6" placeholder="PDF를 업로드하면 내용이 이곳에 자동으로 통합 추출됩니다. PDF가 없다면 교재 요약본이나 노트 내용을 직접 붙여넣어 문제를 생성할 수도 있습니다." class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-xs sm:text-sm text-slate-700 leading-relaxed resize-y"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 우측: 출제 설정 패널 -->
+                <div class="lg:col-span-5 space-y-5">
+                    <div class="bg-white rounded-3xl p-6 shadow-card border border-slate-100 space-y-5">
+                        <h3 class="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <span class="w-7 h-7 rounded-xl bg-pastelPurple-100 text-pastelPurple-600 flex items-center justify-center text-sm font-extrabold">2</span>
+                            출제 옵션 설정
+                        </h3>
+
+                        <!-- 시험지 제목 -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1.5">시험지 제목</label>
+                            <input type="text" id="exam-title-input" placeholder="예: 2026 1학기 중간고사 대비 모의고사" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-sm font-medium">
+                        </div>
+
+                        <!-- 과목 유형 선택 (요구사항 3, 4번) -->
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-2">과목 특성 및 출제 방식 선택</label>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="subjectType" value="general" checked class="peer hidden">
+                                    <div class="p-3.5 rounded-2xl border-2 border-slate-100 peer-checked:border-pastelPurple-400 peer-checked:bg-pastelPurple-50/50 transition h-full">
+                                        <div class="flex items-center gap-2 font-bold text-sm text-slate-800 mb-1">
+                                            <i data-lucide="book-open-check" class="w-4 h-4 text-pastelPurple-500"></i>
+                                            <span>수학 외 일반 과목</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 leading-snug">핵심 개념 <strong>빈칸 채우기</strong> + 논리적 <strong>서술형</strong> 혼합 출제</p>
+                                    </div>
+                                </label>
+                                <label class="cursor-pointer">
+                                    <input type="radio" name="subjectType" value="math" class="peer hidden">
+                                    <div class="p-3.5 rounded-2xl border-2 border-slate-100 peer-checked:border-pastelBlue-400 peer-checked:bg-pastelBlue-50/50 transition h-full">
+                                        <div class="flex items-center gap-2 font-bold text-sm text-slate-800 mb-1">
+                                            <i data-lucide="sigma" class="w-4 h-4 text-pastelBlue-500"></i>
+                                            <span>수학 / 계산 과목</span>
+                                        </div>
+                                        <p class="text-[11px] text-slate-500 leading-snug">기존 문제의 <strong>숫자·변수·유형 변형</strong> 및 단계별 풀이 출제</p>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- 시험지 카테고리 분류 (요구사항 7번) -->
+                        <div>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="text-xs font-bold text-slate-600">시험지 카테고리 분류</label>
+                                <button type="button" onclick="switchTab('exams')" class="text-[11px] font-semibold text-pastelPurple-600 hover:underline">+ 카테고리 관리</button>
+                            </div>
+                            <select id="exam-category-select" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-sm font-semibold text-slate-700 bg-white">
+                                <!-- JS에서 렌더링 -->
+                            </select>
+                        </div>
+
+                        <!-- 예상 문제 개수 10 ~ 50개 (요구사항 1번) -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label for="question-count-slider" class="text-xs font-bold text-slate-600">생성할 예상 문제 수</label>
+                                <div class="flex items-center gap-1.5">
+                                    <input type="number" id="question-count-number" min="10" max="50" value="10" class="w-16 px-2 py-1 text-center rounded-lg border border-pastelPurple-200 text-sm font-extrabold text-pastelPurple-600 focus:outline-none">
+                                    <span class="text-xs font-bold text-slate-500">문항</span>
+                                </div>
+                            </div>
+                            <input type="range" id="question-count-slider" min="10" max="50" value="10" class="w-full">
+                            <div class="flex justify-between text-[11px] font-medium text-slate-400 mt-1">
+                                <span>최소 10문제</span>
+                                <span>30문제</span>
+                                <span>최대 50문제</span>
+                            </div>
+                        </div>
+
+                        <!-- 생성 버튼 -->
+                        <button id="generate-btn" onclick="handleGenerateExam()" class="w-full py-4 rounded-2xl text-white font-extrabold text-base pastel-gradient shadow-soft hover:opacity-95 active:scale-[0.99] transition flex items-center justify-center gap-2">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i>
+                            <span>AI 예상 문제 생성하기</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 로딩 오버레이 (문제 생성 및 AI 채점 분석 중) -->
+        <!-- ========================================================= -->
+        <section id="view-loading" class="hidden py-16">
+            <div class="max-w-md mx-auto bg-white rounded-3xl p-8 shadow-soft border border-pastelPurple-100 text-center">
+                <div class="w-16 h-16 mx-auto rounded-2xl pastel-gradient flex items-center justify-center text-white mb-5 animate-pulse-glow">
+                    <i data-lucide="brain-circuit" class="w-8 h-8 animate-pulse"></i>
+                </div>
+                <h3 id="loading-title" class="text-xl font-extrabold text-slate-800 mb-2">AI가 문서를 분석하고 있습니다</h3>
+                <p id="loading-subtitle" class="text-sm text-slate-500 mb-6 leading-relaxed">
+                    업로드하신 PDF의 핵심 개념을 추출하여 맞춤형 예상 문제를 출제 중입니다...
+                </p>
+                <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                    <div id="loading-progress-bar" class="h-full pastel-gradient rounded-full transition-all duration-500" style="width: 35%"></div>
+                </div>
+                <p id="loading-step-text" class="text-xs font-semibold text-pastelPurple-600 mt-3">문맥 구조 파악 및 출제 알고리즘 가동 중</p>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 2. 시험 응시 뷰 (우측 상단 타이머 + 집중 모드) -->
+        <!-- ========================================================= -->
+        <section id="view-exam-taking" class="hidden space-y-6">
+            <!-- 시험 헤더 바 -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pr-4 sm:pr-48">
+                <div>
+                    <div class="flex items-center gap-2 mb-1.5">
+                        <span id="taking-category-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-pastelPurple-100 text-pastelPurple-600">전공</span>
+                        <span id="taking-type-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-pastelBlue-100 text-pastelBlue-600">빈칸·서술형</span>
+                    </div>
+                    <h2 id="taking-exam-title" class="text-lg sm:text-xl font-extrabold text-slate-800">시험지 제목</h2>
+                </div>
+                <div class="flex items-center gap-3 text-xs font-semibold text-slate-500">
+                    <span>진행률: <strong id="taking-progress-text" class="text-pastelPurple-600">0 / 10</strong> 완료</span>
+                </div>
+            </div>
+
+            <!-- 문항 번호 빠른 이동 네비게이터 -->
+            <div class="bg-white rounded-2xl p-4 shadow-2xs border border-slate-100">
+                <div class="text-xs font-bold text-slate-500 mb-2.5 flex items-center justify-between">
+                    <span>문항 바로가기</span>
+                    <span class="text-[11px] text-slate-400">답안을 입력하면 파스텔 보라색으로 표시됩니다</span>
+                </div>
+                <div id="question-nav-pills" class="flex flex-wrap gap-1.5"></div>
+            </div>
+
+            <!-- 문제 리스트 컨테이너 -->
+            <div id="taking-questions-container" class="space-y-5"></div>
+
+            <!-- 하단 제출 바 -->
+            <div class="bg-white rounded-3xl p-5 shadow-soft border border-pastelBlue-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <button type="button" onclick="confirmCancelExam()" class="w-full sm:w-auto px-5 py-3 rounded-xl text-sm font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 transition">
+                    시험 중단하고 나가기
+                </button>
+                <button type="button" onclick="submitExam()" class="w-full sm:w-auto px-8 py-3.5 rounded-2xl text-sm sm:text-base font-extrabold text-white pastel-gradient shadow-soft hover:opacity-95 transition flex items-center justify-center gap-2">
+                    <i data-lucide="check-circle-2" class="w-5 h-5"></i>
+                    <span>답안 제출 및 AI 채점·분석 보기</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 3. 시험 결과 분석 및 상세 해설 뷰 (요구사항 5, 6번) -->
+        <!-- ========================================================= -->
+        <section id="view-analysis" class="hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                    <span class="text-xs font-bold text-pastelPurple-600 uppercase tracking-wider">AI Post-Exam Analytics</span>
+                    <h2 id="analysis-exam-title" class="text-2xl font-extrabold text-slate-800">시험 결과 분석 리포트</h2>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="addAllWrongToNotebook()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-rose-50 text-rose-600 border border-rose-200 hover:bg-rose-100 transition flex items-center gap-1.5">
+                        <i data-lucide="bookmark-plus" class="w-4 h-4"></i>
+                        <span>틀린 문제 전체 오답노트 담기</span>
+                    </button>
+                    <button onclick="switchTab('history')" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 transition">
+                        목록으로
+                    </button>
+                </div>
+            </div>
+
+            <!-- 핵심 지표 요약 카드 4종 -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100">
+                    <div class="text-xs font-bold text-slate-400 mb-1">최종 점수</div>
+                    <div class="flex items-baseline gap-1">
+                        <span id="analysis-score" class="text-3xl font-extrabold bg-gradient-to-r from-pastelBlue-600 to-pastelPurple-600 bg-clip-text text-transparent">85</span>
+                        <span class="text-sm font-bold text-slate-400">점</span>
+                    </div>
+                </div>
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100">
+                    <div class="text-xs font-bold text-slate-400 mb-1">정답률</div>
+                    <div class="text-2xl sm:text-3xl font-extrabold text-slate-800" id="analysis-correct-ratio">8 / 10</div>
+                </div>
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100">
+                    <div class="text-xs font-bold text-slate-400 mb-1">총 소요 시간</div>
+                    <div class="text-2xl sm:text-3xl font-extrabold text-pastelBlue-600 font-mono" id="analysis-time-spent">04:12</div>
+                </div>
+                <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100">
+                    <div class="text-xs font-bold text-slate-400 mb-1">문항당 평균 시간</div>
+                    <div class="text-2xl sm:text-3xl font-extrabold text-pastelPurple-600" id="analysis-avg-time">25초</div>
+                </div>
+            </div>
+
+            <!-- AI 종합 총평 및 취약 유형 분석 -->
+            <div class="bg-white rounded-3xl p-6 shadow-card border border-pastelPurple-100">
+                <h3 class="text-base font-extrabold text-slate-800 mb-3 flex items-center gap-2">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-pastelPurple-500"></i>
+                    <span>AI 학습 진단 및 취약점 분석</span>
+                </h3>
+                <div id="analysis-ai-summary" class="text-sm text-slate-600 leading-relaxed bg-pastelPurple-50/40 rounded-2xl p-4 border border-pastelPurple-100/70">
+                    분석 내용이 여기에 표시됩니다.
+                </div>
+                <div id="analysis-type-breakdown" class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4"></div>
+            </div>
+
+            <!-- 문항별 상세 해설 리스트 -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-extrabold text-slate-800">문항별 상세 해설 및 모범 답안</h3>
+                    <div class="flex gap-1.5">
+                        <button onclick="filterAnalysisQuestions('all')" class="analysis-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-800 text-white" data-filter="all">전체</button>
+                        <button onclick="filterAnalysisQuestions('wrong')" class="analysis-filter-btn px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600" data-filter="wrong">오답만 보기</button>
+                    </div>
+                </div>
+                <div id="analysis-questions-list" class="space-y-4"></div>
+            </div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 4. 내 시험지 & 카테고리 관리 뷰 (CRUD - 요구사항 7, 10번) -->
+        <!-- ========================================================= -->
+        <section id="view-exams" class="tab-view hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-extrabold text-slate-800">내 시험지 및 카테고리 관리</h2>
+                    <p class="text-sm text-slate-500">전공, 교양, 자격증, 기타 및 사용자 정의 카테고리를 생성·수정·삭제하고 시험지를 관리하세요.</p>
+                </div>
+                <button onclick="switchTab('generator')" class="px-4 py-2.5 rounded-xl text-sm font-bold text-white pastel-gradient shadow-sm hover:opacity-95 transition flex items-center gap-1.5 self-start sm:self-auto">
+                    <i data-lucide="plus" class="w-4 h-4"></i>
+                    <span>새 시험지 만들기</span>
+                </button>
+            </div>
+
+            <!-- 카테고리 CRUD 관리 카드 -->
+            <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border border-slate-100">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h3 class="text-sm font-extrabold text-slate-700 flex items-center gap-2">
+                        <i data-lucide="tags" class="w-4 h-4 text-pastelBlue-500"></i>
+                        <span>카테고리 분류 관리 (생성 · 이름변경 · 삭제)</span>
+                    </h3>
+                    <div class="flex items-center gap-2">
+                        <input type="text" id="new-category-input" placeholder="새 카테고리 이름..." class="px-3.5 py-2 rounded-xl border border-slate-200 text-xs sm:text-sm focus:outline-none focus:border-pastelPurple-400">
+                        <button onclick="createCategory()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-pastelBlue-500 text-white hover:bg-pastelBlue-600 transition shrink-0">
+                            추가
+                        </button>
+                    </div>
+                </div>
+                <div id="category-chips-container" class="flex flex-wrap gap-2"></div>
+            </div>
+
+            <!-- 카테고리 필터 탭 -->
+            <div class="flex items-center gap-2 overflow-x-auto pb-1" id="exam-filter-tabs"></div>
+
+            <!-- 시험지 카드 그리드 -->
+            <div id="exam-papers-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 5. 시험 응시 기록 관리 뷰 (CRUD - 요구사항 10번) -->
+        <!-- ========================================================= -->
+        <section id="view-history" class="tab-view hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-extrabold text-slate-800">시험지 응시기록 관리</h2>
+                    <p class="text-sm text-slate-500">응시한 시험의 점수와 소요 시간을 확인하고, 기록을 편집하거나 삭제할 수 있습니다.</p>
+                </div>
+                <select id="history-category-filter" onchange="renderHistoryView()" class="px-4 py-2.5 rounded-xl border border-slate-200 bg-white text-sm font-semibold text-slate-700 focus:outline-none focus:border-pastelPurple-400 self-start sm:self-auto">
+                    <option value="ALL">전체 카테고리 보기</option>
+                </select>
+            </div>
+
+            <div id="history-list-container" class="space-y-3"></div>
+        </section>
+
+        <!-- ========================================================= -->
+        <!-- 6. 전용 오답노트 뷰 (요구사항 6번) -->
+        <!-- ========================================================= -->
+        <section id="view-wrong-notes" class="tab-view hidden space-y-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-extrabold text-slate-800 flex items-center gap-2">
+                        <span>나만의 오답노트</span>
+                        <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-600" id="wrong-total-count">0문항</span>
+                    </h2>
+                    <p class="text-sm text-slate-500">틀린 문제를 따로 모아 핵심 해설과 나만의 암기 팁을 기록하고 다시 풀어보세요.</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <select id="wrong-category-filter" onchange="renderWrongNotesView()" class="px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs sm:text-sm font-semibold text-slate-700 focus:outline-none">
+                        <option value="ALL">전체 카테고리</option>
+                    </select>
+                    <button onclick="startWrongNotesRetake()" class="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white pastel-gradient shadow-sm hover:opacity-95 transition flex items-center gap-1.5">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                        <span>오답만 모아서 재시험 보기</span>
+                    </button>
+                </div>
+            </div>
+
+            <div id="wrong-notes-list" class="space-y-4"></div>
+        </section>
+
+    </main>
+
+    <!-- 푸터 -->
+    <footer class="bg-white border-t border-slate-100 py-6 mt-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+            <div class="flex items-center gap-2 font-semibold text-slate-500">
+                <span class="w-2 h-2 rounded-full pastel-gradient"></span>
+                <span>AI 문제 생성기 (AI Question Generator)</span>
+            </div>
+            <p>다중 PDF 분석 · 맞춤형 문항 출제 · 실시간 타이머 · AI 오답 분석</p>
+        </div>
+    </footer>
+
+    <script>
+        // =========================================================================
+        // 1. 전역 상태 및 기본 데이터 초기화 (LocalStorage 연동)
+        // =========================================================================
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        const DEFAULT_CATEGORIES = ['전공', '교양', '자격증', '기타'];
+
+        let state = {
+            categories: [],
+            exams: [],
+            history: [],
+            wrongNotes: [],
+            uploadedFiles: [], // { name, size, text }
+            currentTab: 'generator',
+            selectedExamFilter: 'ALL',
+            // 현재 응시 중인 시험 데이터
+            activeExam: null,
+            timerInterval: null,
+            elapsedSeconds: 0,
+            // 현재 보고 있는 분석 데이터
+            currentAnalysisRecord: null,
+            analysisFilter: 'all'
+        };
+
+        // API 호출 헬퍼 (지수 백오프 적용)
+        const apiKey = "";
+        async function callGeminiAPI(promptText, systemInstructionText, responseSchema = null) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: promptText }] }],
+                systemInstruction: { parts: [{ text: systemInstructionText }] }
+            };
+            if (responseSchema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: responseSchema
+                };
+            }
+
+            const delays = [1000, 2000, 4000, 8000];
+            for (let attempt = 0; attempt <= delays.length; attempt++) {
+                try {
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const data = await res.json();
+                    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!text) throw new Error("Empty response");
+                    return responseSchema ? JSON.parse(text) : text;
+                } catch (err) {
+                    if (attempt === delays.length) throw err;
+                    await new Promise(r => setTimeout(r, delays[attempt]));
+                }
+            }
+        }
+
+        // 로컬 스토리지 불러오기 및 초기 샘플 세팅
+        function loadState() {
+            try {
+                const savedCats = JSON.parse(localStorage.getItem('aiq_categories'));
+                state.categories = (Array.isArray(savedCats) && savedCats.length > 0) ? savedCats : [...DEFAULT_CATEGORIES];
+
+                const savedExams = JSON.parse(localStorage.getItem('aiq_exams'));
+                state.exams = Array.isArray(savedExams) ? savedExams : [];
+
+                const savedHistory = JSON.parse(localStorage.getItem('aiq_history'));
+                state.history = Array.isArray(savedHistory) ? savedHistory : [];
+
+                const savedWrong = JSON.parse(localStorage.getItem('aiq_wrong_notes'));
+                state.wrongNotes = Array.isArray(savedWrong) ? savedWrong : [];
+            } catch (e) {
+                state.categories = [...DEFAULT_CATEGORIES];
+                state.exams = [];
+                state.history = [];
+                state.wrongNotes = [];
+            }
+            saveState();
+        }
+
+        function saveState() {
+            localStorage.setItem('aiq_categories', JSON.stringify(state.categories));
+            localStorage.setItem('aiq_exams', JSON.stringify(state.exams));
+            localStorage.setItem('aiq_history', JSON.stringify(state.history));
+            localStorage.setItem('aiq_wrong_notes', JSON.stringify(state.wrongNotes));
+            updateBadges();
+        }
+
+        function updateBadges() {
+            document.getElementById('badge-exams').textContent = state.exams.length;
+            document.getElementById('badge-history').textContent = state.history.length;
+            document.getElementById('badge-wrong').textContent = state.wrongNotes.length;
+            document.getElementById('mobile-badge-wrong').textContent = state.wrongNotes.length;
+            document.getElementById('wrong-total-count').textContent = `${state.wrongNotes.length}문항`;
+        }
+
+        // =========================================================================
+        // 2. UI 유틸리티 (토스트 알림 & 커스텀 확인창)
+        // =========================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const styles = {
+                success: 'bg-white border-emerald-200 text-slate-800',
+                error: 'bg-white border-rose-200 text-slate-800',
+                info: 'bg-white border-pastelPurple-200 text-slate-800'
+            };
+            const icons = {
+                success: '<i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 shrink-0"></i>',
+                error: '<i data-lucide="alert-circle" class="w-5 h-5 text-rose-500 shrink-0"></i>',
+                info: '<i data-lucide="sparkles" class="w-5 h-5 text-pastelPurple-500 shrink-0"></i>'
+            };
+            toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-3.5 rounded-2xl shadow-soft border ${styles[type] || styles.info} transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `${icons[type] || icons.info}<span class="text-xs sm:text-sm font-semibold leading-snug">${message}</span>`;
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        function showConfirm(title, message) {
+            return new Promise((resolve) => {
+                const modal = document.getElementById('confirm-modal');
+                document.getElementById('confirm-title').textContent = title;
+                document.getElementById('confirm-message').textContent = message;
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+
+                const cleanup = (result) => {
+                    modal.classList.add('hidden');
+                    modal.classList.remove('flex');
+                    resolve(result);
+                };
+
+                document.getElementById('confirm-ok-btn').onclick = () => cleanup(true);
+                document.getElementById('confirm-cancel-btn').onclick = () => cleanup(false);
+            });
+        }
+
+        // =========================================================================
+        // 3. 탭 전환 및 내비게이션 관리
+        // =========================================================================
+        function switchTab(tabName) {
+            // 시험 응시 중일 때는 상단 헤더가 숨겨지거나 이탈 방지
+            if (state.activeExam && tabName !== 'exam-taking') {
+                showToast('시험 응시 중입니다. 먼저 시험을 제출하거나 중단해주세요.', 'info');
+                return;
+            }
+
+            state.currentTab = tabName;
+            document.querySelectorAll('.tab-view, #view-loading, #view-exam-taking, #view-analysis').forEach(el => {
+                el.classList.add('hidden');
+            });
+
+            const target = document.getElementById(`view-${tabName}`);
+            if (target) target.classList.remove('hidden');
+
+            // 네비게이션 스타일 업데이트
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('bg-white', 'text-pastelPurple-600', 'shadow-2xs');
+                    btn.classList.remove('text-slate-600', 'hover:text-slate-900');
+                } else {
+                    btn.classList.remove('bg-white', 'text-pastelPurple-600', 'shadow-2xs');
+                    btn.classList.add('text-slate-600', 'hover:text-slate-900');
+                }
+            });
+
+            document.querySelectorAll('.mobile-nav-btn').forEach(btn => {
+                if (btn.dataset.tab === tabName) {
+                    btn.classList.add('text-pastelPurple-600', 'bg-pastelPurple-50');
+                    btn.classList.remove('text-slate-500');
+                } else {
+                    btn.classList.remove('text-pastelPurple-600', 'bg-pastelPurple-50');
+                    btn.classList.add('text-slate-500');
+                }
+            });
+
+            if (tabName === 'exams') renderExamsView();
+            if (tabName === 'history') renderHistoryView();
+            if (tabName === 'wrong-notes') renderWrongNotesView();
+            if (tabName === 'generator') renderCategorySelects();
+
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // =========================================================================
+        // 4. 다중 PDF 업로드 및 텍스트 추출 (PDF.js)
+        // =========================================================================
+        function initUploadHandlers() {
+            const dropZone = document.getElementById('drop-zone');
+            const fileInput = document.getElementById('pdf-file-input');
+            const textArea = document.getElementById('source-text-input');
+            const slider = document.getElementById('question-count-slider');
+            const numInput = document.getElementById('question-count-number');
+
+            dropZone.addEventListener('click', () => fileInput.click());
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('border-pastelPurple-500', 'bg-pastelPurple-50/60');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('border-pastelPurple-500', 'bg-pastelPurple-50/60');
+            });
+
+            dropZone.addEventListener('drop', async (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('border-pastelPurple-500', 'bg-pastelPurple-50/60');
+                if (e.dataTransfer.files?.length) {
+                    await processMultiplePDFs(Array.from(e.dataTransfer.files));
+                }
+            });
+
+            fileInput.addEventListener('change', async (e) => {
+                if (e.target.files?.length) {
+                    await processMultiplePDFs(Array.from(e.target.files));
+                    fileInput.value = '';
+                }
+            });
+
+            textArea.addEventListener('input', () => {
+                document.getElementById('char-count').textContent = `${textArea.value.length.toLocaleString()}자`;
+            });
+
+            // 문제 수 슬라이더 <-> 숫자 입력 동기화 (10~50)
+            slider.addEventListener('input', () => {
+                numInput.value = slider.value;
+            });
+            numInput.addEventListener('change', () => {
+                let val = parseInt(numInput.value, 10) || 10;
+                if (val < 10) val = 10;
+                if (val > 50) val = 50;
+                numInput.value = val;
+                slider.value = val;
+            });
+        }
+
+        async function processMultiplePDFs(files) {
+            const pdfFiles = files.filter(f => f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf'));
+            if (pdfFiles.length === 0) {
+                showToast('PDF 파일(.pdf)만 업로드할 수 있습니다.', 'error');
+                return;
+            }
+
+            showToast(`${pdfFiles.length}개의 PDF 파일에서 텍스트를 추출 중입니다...`, 'info');
+
+            for (const file of pdfFiles) {
+                try {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = '';
+                    const maxPages = Math.min(pdf.numPages, 40); // 성능 보호를 위해 파일당 최대 40페이지
+                    for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+                        const page = await pdf.getPage(pageNum);
+                        const content = await page.getTextContent();
+                        const pageStrings = content.items.map(item => item.str);
+                        fullText += pageStrings.join(' ') + '\n';
+                    }
+
+                    state.uploadedFiles.push({
+                        id: 'file_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+                        name: file.name,
+                        size: (file.size / 1024).toFixed(1) + ' KB',
+                        pages: pdf.numPages,
+                        text: fullText.trim()
+                    });
+                } catch (err) {
+                    console.error('PDF 추출 오류:', err);
+                    showToast(`'${file.name}' 파일을 읽는 중 오류가 발생했습니다.`, 'error');
+                }
+            }
+
+            syncUploadedFilesUI();
+            if (state.uploadedFiles.length > 0 && !document.getElementById('exam-title-input').value.trim()) {
+                const baseName = state.uploadedFiles[0].name.replace(/\.pdf$/i, '');
+                const extra = state.uploadedFiles.length > 1 ? ` 외 ${state.uploadedFiles.length - 1}건` : '';
+                document.getElementById('exam-title-input').value = `${baseName}${extra} 예상문제`;
+            }
+            showToast(`총 ${pdfFiles.length}개의 PDF 추출이 완료되었습니다!`, 'success');
+        }
+
+        function syncUploadedFilesUI() {
+            const container = document.getElementById('uploaded-files-container');
+            const list = document.getElementById('uploaded-files-list');
+            const countEl = document.getElementById('file-count');
+            const textArea = document.getElementById('source-text-input');
+
+            if (state.uploadedFiles.length === 0) {
+                container.classList.add('hidden');
+                list.innerHTML = '';
+                return;
+            }
+
+            container.classList.remove('hidden');
+            countEl.textContent = state.uploadedFiles.length;
+
+            list.innerHTML = state.uploadedFiles.map(f => `
+                <div class="flex items-center justify-between bg-pastelBlue-50/50 border border-pastelBlue-100 rounded-xl px-3.5 py-2.5">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-lg bg-white text-pastelBlue-600 flex items-center justify-center shrink-0 shadow-2xs">
+                            <i data-lucide="file-check-2" class="w-4 h-4"></i>
+                        </div>
+                        <div class="truncate">
+                            <div class="text-xs font-bold text-slate-700 truncate">${escapeHtml(f.name)}</div>
+                            <div class="text-[11px] text-slate-400">${f.pages}페이지 · ${f.size}</div>
+                        </div>
+                    </div>
+                    <button type="button" onclick="removeUploadedFile('${f.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            const combinedText = state.uploadedFiles.map(f => `[문서: ${f.name}]\n${f.text}`).join('\n\n====================\n\n');
+            textArea.value = combinedText;
+            document.getElementById('char-count').textContent = `${combinedText.length.toLocaleString()}자`;
+            lucide.createIcons();
+        }
+
+        function removeUploadedFile(id) {
+            state.uploadedFiles = state.uploadedFiles.filter(f => f.id !== id);
+            syncUploadedFilesUI();
+            if (state.uploadedFiles.length === 0) {
+                document.getElementById('source-text-input').value = '';
+                document.getElementById('char-count').textContent = '0자';
+            }
+        }
+
+        function clearAllFiles() {
+            state.uploadedFiles = [];
+            syncUploadedFilesUI();
+            document.getElementById('source-text-input').value = '';
+            document.getElementById('char-count').textContent = '0자';
+        }
+
+        // 테스트용 샘플 데이터 로드
+        function loadSampleData(type) {
+            const textArea = document.getElementById('source-text-input');
+            const titleInput = document.getElementById('exam-title-input');
+            const catSelect = document.getElementById('exam-category-select');
+
+            if (type === 'math') {
+                document.querySelector('input[name="subjectType"][value="math"]').checked = true;
+                titleInput.value = '미적분학 및 선형대수 변형 예상문제';
+                catSelect.value = state.categories.includes('전공') ? '전공' : state.categories[0];
+                textArea.value = `[수학 강의노트 요약]
+1. 함수 f(x) = 3x^3 - 6x^2 + 4x - 5 의 도함수 f'(x)를 구하고, x = 2에서의 미분계수 f'(2)의 값을 구하시오. (풀이: f'(x) = 9x^2 - 12x + 4, f'(2) = 36 - 24 + 4 = 16)
+2. 정적분 ∫(0부터 3까지) (2x^2 + 4x - 1) dx 의 값을 계산하시오. (풀이: [2/3 x^3 + 2x^2 - x]_0^3 = 18 + 18 - 3 = 33)
+3. 등차수열 {a_n}에서 첫째항이 5이고 공차가 3일 때, 제 10항 a_10의 값과 첫째항부터 제 10항까지의 합 S_10을 구하시오. (a_10 = 5 + 9*3 = 32, S_10 = 10*(5+32)/2 = 185)
+4. 2x2 행렬 A = [[2, 1], [5, 3]] 의 역행렬 A^(-1)의 모든 성분의 합을 구하시오. (det(A) = 6 - 5 = 1, A^(-1) = [[3, -1], [-5, 2]], 합 = -1)
+5. 이차방정식 x^2 - 7x + 10 = 0 의 두 근을 α, β라 할 때, α^2 + β^2의 값을 구하시오. (근과 계수의 관계: α+β=7, αβ=10, α^2+β^2 = 49 - 20 = 29)`;
+            } else {
+                document.querySelector('input[name="subjectType"][value="general"]').checked = true;
+                titleInput.value = '정보처리기사 & 데이터베이스 핵심 요약 예상문제';
+                catSelect.value = state.categories.includes('자격증') ? '자격증' : state.categories[0];
+                textArea.value = `[데이터베이스 및 소프트웨어 공학 핵심 정리]
+1. 트랜잭션(Transaction)의 4대 특성(ACID)은 원자성(Atomicity), 일관성(Consistency), 격리성(Isolation), 지속성(Durability)이다. 원자성은 트랜잭션의 연산이 데이터베이스에 모두 반영되든지 아니면 전혀 반영되지 않아야 하는 성질(All or Nothing)을 의미한다.
+2. 데이터베이스 정규화(Normalization)는 중복을 최소화하게 데이터를 구조화하는 프로세스이다. 제1정규형(1NF)은 모든 도메인이 원자값만으로 되어 있어야 하며, 제2정규형(2NF)은 부분 함수 종속을 제거하고, 제3정규형(3NF)은 이행적 함수 종속을 제거한다.
+3. TCP(Transmission Control Protocol)는 연결 지향형 프로토콜로 3-Way Handshake 과정을 통해 신뢰성 있는 데이터 전송을 보장하며, 흐름 제어와 혼잡 제어를 수행한다. 반면 UDP는 비연결형 프로토콜로 속도가 빠르지만 신뢰성을 보장하지 않는다.
+4. 객체지향 설계 원칙(SOLID) 중 단일 책임 원칙(SRP)은 클래스는 단 하나의 책임만 가져야 한다는 원칙이며, 개방-폐쇄 원칙(OCP)은 확장에는 열려 있고 변경에는 닫혀 있어야 한다는 원칙이다.`;
+            }
+            document.getElementById('char-count').textContent = `${textArea.value.length.toLocaleString()}자`;
+            showToast('샘플 학습 자료가 입력되었습니다. 바로 문제 생성을 눌러보세요!', 'success');
+        }
+
+        // =========================================================================
+        // 5. AI 예상 문제 생성 로직 (10~50개, 수학 변형 vs 일반 빈칸/서술형)
+        // =========================================================================
+        async function handleGenerateExam() {
+            const sourceText = document.getElementById('source-text-input').value.trim();
+            if (sourceText.length < 30) {
+                showToast('PDF 파일을 업로드하거나 최소 30자 이상의 학습 내용을 입력해주세요.', 'error');
+                return;
+            }
+
+            const title = document.getElementById('exam-title-input').value.trim() || `AI 예상 모의고사 (${new Date().toLocaleDateString()})`;
+            const subjectType = document.querySelector('input[name="subjectType"]:checked').value; // 'math' or 'general'
+            const category = document.getElementById('exam-category-select').value || '기타';
+            let count = parseInt(document.getElementById('question-count-number').value, 10) || 10;
+            count = Math.max(10, Math.min(50, count));
+
+            // 로딩 화면 표시
+            document.querySelectorAll('.tab-view').forEach(el => el.classList.add('hidden'));
+            const loadingView = document.getElementById('view-loading');
+            loadingView.classList.remove('hidden');
+            document.getElementById('loading-title').textContent = `AI가 ${count}개의 맞춤형 예상문제를 출제 중입니다`;
+            document.getElementById('loading-subtitle').textContent = subjectType === 'math'
+                ? '수학 문제의 숫자와 조건, 유형을 정교하게 변형하고 풀이 과정을 작성하고 있습니다...'
+                : '핵심 문장을 선별하여 빈칸 채우기 및 서술형 문제를 구성하고 있습니다...';
+
+            const progressBar = document.getElementById('loading-progress-bar');
+            const stepText = document.getElementById('loading-step-text');
+            progressBar.style.width = '25%';
+
+            const stepTimer1 = setTimeout(() => {
+                progressBar.style.width = '60%';
+                stepText.textContent = '문항 난이도 밸런싱 및 모범 답안·해설 생성 중...';
+            }, 1800);
+            const stepTimer2 = setTimeout(() => {
+                progressBar.style.width = '88%';
+                stepText.textContent = '최종 검토 및 시험지 포맷팅 중...';
+            }, 4500);
+
+            try {
+                const truncatedSource = sourceText.slice(0, 28000); // 토큰 한도 내 충분한 분량
+
+                const systemInstruction = subjectType === 'math'
+                    ? `당신은 대한민국 최고의 수학 및 공학수학 출제 위원입니다. 주어진 학습 자료의 수학 문제와 개념을 바탕으로 총 ${count}개의 새로운 예상 문제를 출제하세요.
+[필수 출제 규칙]
+1. 원본 자료에 있는 문제의 숫자, 계수, 조건, 함수식 또는 문제 유형을 반드시 변형하여 새로운 문제를 만드세요. (단순 복사 금지)
+2. 정확히 ${count}개의 문항을 생성하세요.
+3. 각 문항은 '수학 변형(단답/풀이형)' 유형(type: "math")으로 출제하며, 정답(answer)은 명확한 최종 수치나 수식으로 작성하고, 해설(explanation)에는 단계별 풀이 과정을 상세히 적으세요.
+4. 채점 키워드(keywords)에는 정답 수치나 핵심 수식 표현 1~3개를 배열로 넣으세요.`
+                    : `당신은 대학교 전공·교양 및 국가자격증 시험 출제 전문가입니다. 주어진 학습 자료의 핵심 내용을 바탕으로 총 ${count}개의 예상 문제를 출제하세요.
+[필수 출제 규칙]
+1. 객관식은 절대 출제하지 마세요. 오직 '빈칸 채우기'(type: "blank")와 '서술형'(type: "descriptive") 두 가지 유형만 혼합하여 정확히 ${count}문항을 생성하세요.
+2. '빈칸 채우기' 문제는 문장 내 핵심 용어가 들어갈 자리를 [ (   ) ] 형태로 비워두고, 정답(answer)에 들어갈 정확한 단어를 제시하세요.
+3. '서술형' 문제는 개념의 정의, 원리, 비교, 이유 등을 설명하도록 출제하고, 모범 답안(answer)과 채점 핵심 키워드(keywords: 2~4개 핵심 단어)를 명확히 제시하세요.
+4. 모든 문항에 대해 왜 그것이 정답인지 학습자가 완벽히 이해할 수 있도록 친절하고 상세한 해설(explanation)을 작성하세요.`;
+
+                const schema = {
+                    type: "ARRAY",
+                    items: {
+                        type: "OBJECT",
+                        properties: {
+                            type: { type: "STRING", description: "문항 유형: 'blank' (빈칸), 'descriptive' (서술형), 'math' (수학변형)" },
+                            question: { type: "STRING", description: "문제 지문 (빈칸 문제의 경우 빈칸을 (   ) 로 표시)" },
+                            hint: { type: "STRING", description: "문제 풀이를 돕는 짧은 힌트나 조건 안내" },
+                            answer: { type: "STRING", description: "정답 또는 모범 답안" },
+                            keywords: {
+                                type: "ARRAY",
+                                items: { type: "STRING" },
+                                description: "정답 판별을 위한 핵심 키워드 또는 정답 수치"
+                            },
+                            explanation: { type: "STRING", description: "상세 해설 및 풀이 과정" }
+                        },
+                        required: ["type", "question", "answer", "keywords", "explanation"]
+                    }
+                };
+
+                const prompt = `다음 학습 자료를 기반으로 정확히 ${count}개의 예상 문제를 JSON 배열로 생성해 주세요.\n\n[학습 자료]\n${truncatedSource}`;
+
+                const generatedQuestions = await callGeminiAPI(prompt, systemInstruction, schema);
+
+                clearTimeout(stepTimer1);
+                clearTimeout(stepTimer2);
+                progressBar.style.width = '100%';
+
+                if (!Array.isArray(generatedQuestions) || generatedQuestions.length === 0) {
+                    throw new Error("문항 생성 결과가 올바르지 않습니다.");
+                }
+
+                // 문항 번호 부여 및 정규화
+                const formattedQuestions = generatedQuestions.slice(0, count).map((q, idx) => ({
+                    id: idx + 1,
+                    type: q.type || (subjectType === 'math' ? 'math' : (idx % 2 === 0 ? 'blank' : 'descriptive')),
+                    question: q.question,
+                    hint: q.hint || '',
+                    answer: q.answer,
+                    keywords: Array.isArray(q.keywords) && q.keywords.length > 0 ? q.keywords : [q.answer],
+                    explanation: q.explanation
+                }));
+
+                const newExam = {
+                    id: 'exam_' + Date.now(),
+                    title: title,
+                    category: category,
+                    subjectType: subjectType,
+                    createdAt: new Date().toISOString(),
+                    questions: formattedQuestions
+                };
+
+                state.exams.unshift(newExam);
+                saveState();
+
+                loadingView.classList.add('hidden');
+                showToast(`총 ${formattedQuestions.length}문항의 예상 시험지가 생성되었습니다! 바로 시험을 시작합니다.`, 'success');
+
+                // 생성 직후 바로 시험 응시 화면으로 진입
+                startExam(newExam.id);
+
+            } catch (error) {
+                clearTimeout(stepTimer1);
+                clearTimeout(stepTimer2);
+                console.error('문제 생성 실패:', error);
+                loadingView.classList.add('hidden');
+                switchTab('generator');
+                showToast('문제 생성 중 일시적인 오류가 발생했습니다. 다시 시도해 주세요.', 'error');
+            }
+        }
+
+        // =========================================================================
+        // 6. 시험 응시 모드 & 우측 상단 실시간 타이머
+        // =========================================================================
+        function startExam(examId) {
+            const exam = state.exams.find(e => e.id === examId);
+            if (!exam) return;
+
+            state.activeExam = JSON.parse(JSON.stringify(exam)); // 깊은 복사
+            state.elapsedSeconds = 0;
+
+            // 뷰 전환
+            document.querySelectorAll('.tab-view, #view-loading, #view-analysis').forEach(el => el.classList.add('hidden'));
+            document.getElementById('view-exam-taking').classList.remove('hidden');
+
+            // 우측 상단 플로팅 타이머 표시 및 시작
+            const timerEl = document.getElementById('floating-timer');
+            timerEl.classList.remove('hidden');
+            timerEl.classList.add('flex');
+            updateTimerDisplay();
+
+            if (state.timerInterval) clearInterval(state.timerInterval);
+            state.timerInterval = setInterval(() => {
+                state.elapsedSeconds++;
+                updateTimerDisplay();
+            }, 1000);
+
+            // 시험 정보 렌더링
+            document.getElementById('taking-category-badge').textContent = exam.category;
+            document.getElementById('taking-type-badge').textContent = exam.subjectType === 'math' ? '수학 유형·숫자 변형' : '빈칸 · 서술형 혼합';
+            document.getElementById('taking-exam-title').textContent = exam.title;
+            document.getElementById('taking-progress-text').textContent = `0 / ${exam.questions.length}`;
+
+            renderExamQuestionsForTaking();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updateTimerDisplay() {
+            const hrs = String(Math.floor(state.elapsedSeconds / 3600)).padStart(2, '0');
+            const mins = String(Math.floor((state.elapsedSeconds % 3600) / 60)).padStart(2, '0');
+            const secs = String(state.elapsedSeconds % 60).padStart(2, '0');
+            document.getElementById('timer-display').textContent = `${hrs}:${mins}:${secs}`;
+        }
+
+        function formatSecondsKorean(totalSec) {
+            const m = Math.floor(totalSec / 60);
+            const s = totalSec % 60;
+            if (m === 0) return `${s}초`;
+            return `${m}분 ${s}초`;
+        }
+
+        function renderExamQuestionsForTaking() {
+            const qs = state.activeExam.questions;
+            const navPills = document.getElementById('question-nav-pills');
+            const container = document.getElementById('taking-questions-container');
+
+            navPills.innerHTML = qs.map((q, idx) => `
+                <a href="#q-card-${idx}" id="nav-pill-${idx}" class="w-8 h-8 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-600 flex items-center justify-center hover:border-pastelPurple-400 transition">
+                    ${idx + 1}
+                </a>
+            `).join('');
+
+            container.innerHTML = qs.map((q, idx) => {
+                const typeLabel = q.type === 'math' ? '수학 변형문제' : (q.type === 'blank' ? '빈칸 채우기' : '서술형 문제');
+                const typeBadgeClass = q.type === 'math'
+                    ? 'bg-pastelBlue-100 text-pastelBlue-600'
+                    : (q.type === 'blank' ? 'bg-pastelPurple-100 text-pastelPurple-600' : 'bg-indigo-100 text-indigo-600');
+
+                const inputHtml = q.type === 'descriptive'
+                    ? `<textarea rows="3" oninput="handleAnswerInput(${idx}, this.value)" placeholder="핵심 개념을 포함하여 서술형 답안을 작성하세요..." class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 focus:ring-2 focus:ring-pastelPurple-100 text-sm text-slate-800 leading-relaxed"></textarea>`
+                    : `<input type="text" oninput="handleAnswerInput(${idx}, this.value)" placeholder="${q.type === 'math' ? '계산 결과(정답) 및 핵심 풀이 식을 입력하세요...' : '빈칸에 들어갈 정답을 입력하세요...'}" class="w-full px-4 py-3 rounded-2xl border border-slate-200 focus:outline-none focus:border-pastelBlue-400 focus:ring-2 focus:ring-pastelBlue-100 text-sm font-medium text-slate-800">`;
+
+                return `
+                    <div id="q-card-${idx}" class="bg-white rounded-3xl p-5 sm:p-7 shadow-card border border-slate-100 scroll-mt-24 transition">
+                        <div class="flex items-center justify-between gap-2 mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-8 h-8 rounded-xl pastel-gradient text-white font-extrabold text-sm flex items-center justify-center shadow-2xs">Q${idx + 1}</span>
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold ${typeBadgeClass}">${typeLabel}</span>
+                            </div>
+                            ${q.hint ? `<span class="text-xs text-slate-400 font-medium hidden sm:inline">💡 힌트: ${escapeHtml(q.hint)}</span>` : ''}
+                        </div>
+                        <p class="text-base sm:text-lg font-bold text-slate-800 leading-relaxed whitespace-pre-line mb-4">${escapeHtml(q.question)}</p>
+                        ${q.hint ? `<p class="text-xs text-slate-400 mb-3 sm:hidden">💡 힌트: ${escapeHtml(q.hint)}</p>` : ''}
+                        <div>
+                            ${inputHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function handleAnswerInput(index, value) {
+            if (!state.activeExam) return;
+            state.activeExam.questions[index].userAnswer = value;
+
+            const pill = document.getElementById(`nav-pill-${index}`);
+            if (value.trim().length > 0) {
+                pill.classList.remove('bg-slate-50', 'text-slate-600', 'border-slate-200');
+                pill.classList.add('bg-pastelPurple-500', 'text-white', 'border-pastelPurple-500');
+            } else {
+                pill.classList.add('bg-slate-50', 'text-slate-600', 'border-slate-200');
+                pill.classList.remove('bg-pastelPurple-500', 'text-white', 'border-pastelPurple-500');
+            }
+
+            const answeredCount = state.activeExam.questions.filter(q => q.userAnswer && q.userAnswer.trim().length > 0).length;
+            document.getElementById('taking-progress-text').textContent = `${answeredCount} / ${state.activeExam.questions.length}`;
+        }
+
+        async function confirmCancelExam() {
+            const ok = await showConfirm('시험 중단', '현재 응시 중인 답안은 저장되지 않습니다. 정말 시험을 종료하시겠습니까?');
+            if (ok) {
+                stopExamTimer();
+                state.activeExam = null;
+                switchTab('exams');
+            }
+        }
+
+        function stopExamTimer() {
+            if (state.timerInterval) {
+                clearInterval(state.timerInterval);
+                state.timerInterval = null;
+            }
+            const timerEl = document.getElementById('floating-timer');
+            timerEl.classList.add('hidden');
+            timerEl.classList.remove('flex');
+        }
+
+        // =========================================================================
+        // 7. 시험 제출, AI 채점/분석 및 결과 리포트
+        // =========================================================================
+        async function submitExam() {
+            if (!state.activeExam) return;
+
+            const unanswered = state.activeExam.questions.filter(q => !q.userAnswer || !q.userAnswer.trim()).length;
+            if (unanswered > 0) {
+                const ok = await showConfirm('미작성 문항 안내', `아직 작성하지 않은 문제가 ${unanswered}개 있습니다. 이대로 제출하고 채점하시겠습니까?`);
+                if (!ok) return;
+            }
+
+            const timeSpent = state.elapsedSeconds;
+            stopExamTimer();
+
+            // 로딩 화면
+            document.getElementById('view-exam-taking').classList.add('hidden');
+            const loadingView = document.getElementById('view-loading');
+            loadingView.classList.remove('hidden');
+            document.getElementById('loading-title').textContent = 'AI가 답안을 채점하고 성적을 분석 중입니다';
+            document.getElementById('loading-subtitle').textContent = '서술형 의미 유사도와 수학 계산 결과를 정밀 채점하고 취약점을 도출하고 있습니다...';
+            document.getElementById('loading-progress-bar').style.width = '50%';
+
+            const exam = state.activeExam;
+
+            // 1차 로컬 채점 + AI 정밀 채점 시도
+            let gradedResults = [];
+            let aiOverallComment = '';
+
+            try {
+                const gradingInput = exam.questions.map((q, idx) => ({
+                    index: idx,
+                    type: q.type,
+                    question: q.question,
+                    modelAnswer: q.answer,
+                    keywords: q.keywords,
+                    userAnswer: (q.userAnswer || '').trim()
+                }));
+
+                const gradingPrompt = `다음 시험 응시자의 답안을 채점하고 종합 학습 피드백을 생성하세요.
+- 빈칸 및 수학 문제는 정답과 수치/핵심 용어가 일치하면 정답(isCorrect: true) 처리하세요.
+- 서술형 문제는 모범 답안의 핵심 의미와 키워드를 포함하고 있으면 정답(isCorrect: true) 처리하세요.
+- 미작성(빈 문자열)은 무조건 오답(isCorrect: false)입니다.
+- feedback에는 응시자 답안에 대한 짧은 코멘트(잘한 점 또는 부족한 핵심 포인트)를 한국어로 작성하세요.
+
+[응시 데이터]
+${JSON.stringify(gradingInput)}`;
+
+                const gradingSchema = {
+                    type: "OBJECT",
+                    properties: {
+                        overallAnalysis: { type: "STRING", description: "전체 시험 결과에 대한 AI 종합 분석 및 학습 조언 (3~4문장)" },
+                        results: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    index: { type: "INTEGER" },
+                                    isCorrect: { type: "BOOLEAN" },
+                                    feedback: { type: "STRING" }
+                                },
+                                required: ["index", "isCorrect", "feedback"]
+                            }
+                        }
+                    },
+                    required: ["overallAnalysis", "results"]
+                };
+
+                const aiGrade = await callGeminiAPI(gradingPrompt, "당신은 공정하고 친절한 AI 시험 채점관이자 학습 코치입니다.", gradingSchema);
+                aiOverallComment = aiGrade.overallAnalysis;
+                gradedResults = aiGrade.results;
+            } catch (err) {
+                console.warn('AI 채점 폴백 실행:', err);
+                // 폴백: 키워드 및 문자열 정규화 비교
+                gradedResults = exam.questions.map((q, idx) => {
+                    const userNorm = (q.userAnswer || '').replace(/\s+/g, '').toLowerCase();
+                    if (!userNorm) return { index: idx, isCorrect: false, feedback: '답안을 작성하지 않았습니다.' };
+                    const ansNorm = q.answer.replace(/\s+/g, '').toLowerCase();
+                    const kwMatch = (q.keywords || []).some(kw => userNorm.includes(kw.replace(/\s+/g, '').toLowerCase()));
+                    const isCorrect = userNorm === ansNorm || kwMatch || (ansNorm.length > 2 && userNorm.includes(ansNorm));
+                    return {
+                        index: idx,
+                        isCorrect,
+                        feedback: isCorrect ? '핵심 내용을 정확하게 작성했습니다.' : '모범 답안의 핵심 개념 및 풀이 과정을 다시 확인해 보세요.'
+                    };
+                });
+                aiOverallComment = '제출된 답안을 바탕으로 자동 채점이 완료되었습니다. 오답 문항의 모범 답안과 해설을 꼼꼼히 복습하고 오답노트에 등록해 반복 학습해 보세요.';
+            }
+
+            // 결과 병합
+            let correctCount = 0;
+            const evaluatedQuestions = exam.questions.map((q, idx) => {
+                const g = gradedResults.find(r => r.index === idx) || { isCorrect: false, feedback: '' };
+                if (g.isCorrect) correctCount++;
+                return {
+                    ...q,
+                    userAnswer: q.userAnswer || '',
+                    isCorrect: g.isCorrect,
+                    aiFeedback: g.feedback
+                };
+            });
+
+            const score = Math.round((correctCount / evaluatedQuestions.length) * 100);
+
+            const historyRecord = {
+                id: 'hist_' + Date.now(),
+                examId: exam.id,
+                title: exam.title,
+                category: exam.category,
+                subjectType: exam.subjectType,
+                date: new Date().toISOString(),
+                timeSpent: timeSpent,
+                score: score,
+                correctCount: correctCount,
+                totalCount: evaluatedQuestions.length,
+                overallAnalysis: aiOverallComment,
+                questions: evaluatedQuestions
+            };
+
+            state.history.unshift(historyRecord);
+            state.activeExam = null;
+            saveState();
+
+            loadingView.classList.add('hidden');
+            openAnalysisReport(historyRecord.id);
+        }
+
+        function openAnalysisReport(historyId) {
+            const record = state.history.find(h => h.id === historyId);
+            if (!record) return;
+
+            state.currentAnalysisRecord = record;
+            state.analysisFilter = 'all';
+
+            document.querySelectorAll('.tab-view, #view-loading, #view-exam-taking').forEach(el => el.classList.add('hidden'));
+            document.getElementById('view-analysis').classList.remove('hidden');
+
+            document.getElementById('analysis-exam-title').textContent = `${record.title} - 결과 분석`;
+            document.getElementById('analysis-score').textContent = record.score;
+            document.getElementById('analysis-correct-ratio').textContent = `${record.correctCount} / ${record.totalCount}`;
+            document.getElementById('analysis-time-spent').textContent = formatSecondsKorean(record.timeSpent);
+            const avgSec = Math.round(record.timeSpent / Math.max(1, record.totalCount));
+            document.getElementById('analysis-avg-time').textContent = `${avgSec}초`;
+            document.getElementById('analysis-ai-summary').textContent = record.overallAnalysis;
+
+            // 유형별 정답률 분석
+            const typeStats = {};
+            record.questions.forEach(q => {
+                const label = q.type === 'math' ? '수학 변형 문항' : (q.type === 'blank' ? '빈칸 채우기 문항' : '서술형 문항');
+                if (!typeStats[label]) typeStats[label] = { total: 0, correct: 0 };
+                typeStats[label].total++;
+                if (q.isCorrect) typeStats[label].correct++;
+            });
+
+            const breakdownEl = document.getElementById('analysis-type-breakdown');
+            breakdownEl.innerHTML = Object.entries(typeStats).map(([label, stat]) => {
+                const pct = Math.round((stat.correct / stat.total) * 100);
+                return `
+                    <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-100">
+                        <div class="flex justify-between items-center text-xs font-bold mb-1.5">
+                            <span class="text-slate-700">${label}</span>
+                            <span class="text-pastelPurple-600">${stat.correct}/${stat.total} (${pct}%)</span>
+                        </div>
+                        <div class="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
+                            <div class="h-full pastel-gradient rounded-full" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            renderAnalysisQuestions();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function filterAnalysisQuestions(filter) {
+            state.analysisFilter = filter;
+            document.querySelectorAll('.analysis-filter-btn').forEach(btn => {
+                if (btn.dataset.filter === filter) {
+                    btn.classList.add('bg-slate-800', 'text-white');
+                    btn.classList.remove('bg-slate-100', 'text-slate-600');
+                } else {
+                    btn.classList.remove('bg-slate-800', 'text-white');
+                    btn.classList.add('bg-slate-100', 'text-slate-600');
+                }
+            });
+            renderAnalysisQuestions();
+        }
+
+        function renderAnalysisQuestions() {
+            const record = state.currentAnalysisRecord;
+            if (!record) return;
+
+            const listEl = document.getElementById('analysis-questions-list');
+            const filtered = record.questions.filter(q => state.analysisFilter === 'all' || !q.isCorrect);
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="bg-white rounded-3xl p-8 text-center border border-slate-100">
+                        <p class="text-sm font-bold text-slate-600">틀린 문제가 없습니다! 완벽한 성적입니다 🎉</p>
+                    </div>
+                `;
+                return;
+            }
+
+            listEl.innerHTML = filtered.map((q) => {
+                const alreadyInWrong = state.wrongNotes.some(w => w.question === q.question && w.answer === q.answer);
+                const statusBadge = q.isCorrect
+                    ? '<span class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-emerald-100 text-emerald-700 flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i>정답</span>'
+                    : '<span class="px-2.5 py-1 rounded-lg text-xs font-extrabold bg-rose-100 text-rose-700 flex items-center gap-1"><i data-lucide="x" class="w-3.5 h-3.5"></i>오답</span>';
+
+                return `
+                    <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border ${q.isCorrect ? 'border-emerald-100' : 'border-rose-200/80'}">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-xl bg-slate-800 text-white text-xs font-extrabold flex items-center justify-center">Q${q.id}</span>
+                                ${statusBadge}
+                            </div>
+                            <button onclick="addSingleToWrongNote('${record.id}', ${q.id})" class="px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${alreadyInWrong ? 'bg-slate-100 text-slate-500' : 'bg-pastelPurple-50 text-pastelPurple-600 hover:bg-pastelPurple-100'}">
+                                <i data-lucide="${alreadyInWrong ? 'bookmark-check' : 'bookmark-plus'}" class="w-3.5 h-3.5"></i>
+                                <span>${alreadyInWrong ? '오답노트 저장됨' : '오답노트에 추가'}</span>
+                            </button>
+                        </div>
+
+                        <p class="text-base font-bold text-slate-800 leading-relaxed whitespace-pre-line mb-4">${escapeHtml(q.question)}</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                            <div class="p-3.5 rounded-2xl ${q.isCorrect ? 'bg-emerald-50/60 border border-emerald-100' : 'bg-rose-50/60 border border-rose-100'}">
+                                <div class="text-[11px] font-bold text-slate-500 mb-1">내가 작성한 답안</div>
+                                <div class="text-sm font-semibold text-slate-800 whitespace-pre-line">${q.userAnswer ? escapeHtml(q.userAnswer) : '<span class="text-slate-400 italic">(미작성)</span>'}</div>
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-pastelBlue-50/60 border border-pastelBlue-100">
+                                <div class="text-[11px] font-bold text-pastelBlue-600 mb-1">정답 / 모범 답안</div>
+                                <div class="text-sm font-bold text-slate-800 whitespace-pre-line">${escapeHtml(q.answer)}</div>
+                            </div>
+                        </div>
+
+                        <div class="bg-slate-50 rounded-2xl p-4 space-y-2 border border-slate-100">
+                            ${q.aiFeedback ? `<div class="text-xs font-semibold text-pastelPurple-600">💬 AI 채점 피드백: ${escapeHtml(q.aiFeedback)}</div>` : ''}
+                            <div class="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                                <strong class="text-slate-800">📖 상세 해설:</strong> ${escapeHtml(q.explanation)}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        // =========================================================================
+        // 8. 오답노트 기능 (추가, 메모, 숙지 완료, 삭제, 오답 재시험)
+        // =========================================================================
+        function addSingleToWrongNote(historyId, questionId) {
+            const record = state.history.find(h => h.id === historyId);
+            if (!record) return;
+            const q = record.questions.find(item => item.id === questionId);
+            if (!q) return;
+
+            const exists = state.wrongNotes.some(w => w.question === q.question && w.answer === q.answer);
+            if (exists) {
+                showToast('이미 오답노트에 등록된 문제입니다.', 'info');
+                return;
+            }
+
+            state.wrongNotes.unshift({
+                id: 'wrong_' + Date.now() + '_' + q.id,
+                category: record.category,
+                examTitle: record.title,
+                type: q.type,
+                question: q.question,
+                userAnswer: q.userAnswer,
+                answer: q.answer,
+                explanation: q.explanation,
+                memo: '',
+                mastered: false,
+                createdAt: new Date().toISOString()
+            });
+
+            saveState();
+            renderAnalysisQuestions();
+            showToast('오답노트에 문제가 추가되었습니다!', 'success');
+        }
+
+        function addAllWrongToNotebook() {
+            const record = state.currentAnalysisRecord;
+            if (!record) return;
+            const wrongOnes = record.questions.filter(q => !q.isCorrect);
+            if (wrongOnes.length === 0) {
+                showToast('틀린 문제가 없습니다!', 'info');
+                return;
+            }
+
+            let addedCount = 0;
+            wrongOnes.forEach(q => {
+                const exists = state.wrongNotes.some(w => w.question === q.question && w.answer === q.answer);
+                if (!exists) {
+                    state.wrongNotes.unshift({
+                        id: 'wrong_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+                        category: record.category,
+                        examTitle: record.title,
+                        type: q.type,
+                        question: q.question,
+                        userAnswer: q.userAnswer,
+                        answer: q.answer,
+                        explanation: q.explanation,
+                        memo: '',
+                        mastered: false,
+                        createdAt: new Date().toISOString()
+                    });
+                    addedCount++;
+                }
+            });
+
+            saveState();
+            renderAnalysisQuestions();
+            if (addedCount > 0) {
+                showToast(`틀린 문제 ${addedCount}개가 오답노트에 일괄 저장되었습니다!`, 'success');
+            } else {
+                showToast('모든 오답이 이미 오답노트에 저장되어 있습니다.', 'info');
+            }
+        }
+
+        function renderWrongNotesView() {
+            renderCategorySelects();
+            const filterCat = document.getElementById('wrong-category-filter').value;
+            const listEl = document.getElementById('wrong-notes-list');
+
+            const filtered = state.wrongNotes.filter(w => filterCat === 'ALL' || w.category === filterCat);
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `
+                    <div class="bg-white rounded-3xl p-12 text-center shadow-card border border-slate-100">
+                        <div class="w-14 h-14 mx-auto rounded-2xl pastel-gradient-soft text-pastelPurple-500 flex items-center justify-center mb-3">
+                            <i data-lucide="bookmark-check" class="w-7 h-7"></i>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-700 mb-1">등록된 오답노트가 없습니다</h3>
+                        <p class="text-xs sm:text-sm text-slate-400">시험을 응시한 후 틀린 문제를 오답노트에 담아 집중 복습해 보세요!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            listEl.innerHTML = filtered.map((w, idx) => `
+                <div class="bg-white rounded-3xl p-5 sm:p-6 shadow-card border ${w.mastered ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-100'}">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <div class="flex items-center gap-2">
+                            <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-pastelPurple-100 text-pastelPurple-600">${escapeHtml(w.category)}</span>
+                            <span class="text-xs font-medium text-slate-400">${escapeHtml(w.examTitle)}</span>
+                            ${w.mastered ? '<span class="px-2 py-0.5 rounded-md text-[11px] font-bold bg-emerald-100 text-emerald-700">복습 완료</span>' : ''}
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="toggleWrongMastered('${w.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${w.mastered ? 'bg-slate-100 text-slate-600' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100'} transition">
+                                ${w.mastered ? '복습 취소' : '✓ 암기 완료'}
+                            </button>
+                            <button onclick="deleteWrongNote('${w.id}')" class="p-1.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition" title="삭제">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <p class="text-base font-bold text-slate-800 leading-relaxed whitespace-pre-line mb-4">Q${idx + 1}. ${escapeHtml(w.question)}</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                        <div class="p-3.5 rounded-2xl bg-rose-50/50 border border-rose-100">
+                            <div class="text-[11px] font-bold text-rose-500 mb-1">이전 오답 기록</div>
+                            <div class="text-sm text-slate-700">${w.userAnswer ? escapeHtml(w.userAnswer) : '<span class="text-slate-400 italic">(미작성)</span>'}</div>
+                        </div>
+                        <div class="p-3.5 rounded-2xl bg-pastelBlue-50/60 border border-pastelBlue-100">
+                            <div class="text-[11px] font-bold text-pastelBlue-600 mb-1">정답 / 모범 답안</div>
+                            <div class="text-sm font-bold text-slate-800">${escapeHtml(w.answer)}</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-slate-50 rounded-2xl p-3.5 text-xs sm:text-sm text-slate-600 leading-relaxed mb-3 border border-slate-100">
+                        <strong class="text-slate-800">📖 상세 해설:</strong> ${escapeHtml(w.explanation)}
+                    </div>
+
+                    <!-- 나만의 오답 메모 -->
+                    <div>
+                        <label class="block text-[11px] font-bold text-pastelPurple-600 mb-1">✍️ 나만의 오답 노트 / 암기 팁 메모</label>
+                        <input type="text" value="${escapeHtml(w.memo || '')}" onchange="updateWrongMemo('${w.id}', this.value)" placeholder="실수한 이유나 꼭 외워야 할 핵심 키워드를 적어두세요..." class="w-full px-3.5 py-2 rounded-xl border border-slate-200 focus:outline-none focus:border-pastelPurple-400 text-xs sm:text-sm bg-pastelPurple-50/20">
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function toggleWrongMastered(id) {
+            const item = state.wrongNotes.find(w => w.id === id);
+            if (item) {
+                item.mastered = !item.mastered;
+                saveState();
+                renderWrongNotesView();
+            }
+        }
+
+        function updateWrongMemo(id, text) {
+            const item = state.wrongNotes.find(w => w.id === id);
+            if (item) {
+                item.memo = text;
+                saveState();
+                showToast('오답 메모가 저장되었습니다.', 'success');
+            }
+        }
+
+        async function deleteWrongNote(id) {
+            const ok = await showConfirm('오답노트 삭제', '이 문제를 오답노트에서 삭제하시겠습니까?');
+            if (ok) {
+                state.wrongNotes = state.wrongNotes.filter(w => w.id !== id);
+                saveState();
+                renderWrongNotesView();
+                showToast('오답노트에서 삭제되었습니다.', 'info');
+            }
+        }
+
+        function startWrongNotesRetake() {
+            const filterCat = document.getElementById('wrong-category-filter').value;
+            const targets = state.wrongNotes.filter(w => !w.mastered && (filterCat === 'ALL' || w.category === filterCat));
+
+            if (targets.length === 0) {
+                showToast('재시험 볼 미완료 오답 문제가 없습니다.', 'info');
+                return;
+            }
+
+            const tempExam = {
+                id: 'retake_' + Date.now(),
+                title: `[오답노트 복습 시험] ${filterCat === 'ALL' ? '전체' : filterCat} (${targets.length}문항)`,
+                category: filterCat === 'ALL' ? '기타' : filterCat,
+                subjectType: 'general',
+                createdAt: new Date().toISOString(),
+                questions: targets.map((w, idx) => ({
+                    id: idx + 1,
+                    type: w.type || 'descriptive',
+                    question: w.question,
+                    hint: '',
+                    answer: w.answer,
+                    keywords: [w.answer],
+                    explanation: w.explanation
+                }))
+            };
+
+            state.exams.unshift(tempExam);
+            saveState();
+            startExam(tempExam.id);
+        }
+
+        // =========================================================================
+        // 9. 카테고리 & 시험지 & 응시기록 CRUD 관리 (요구사항 7, 10번)
+        // =========================================================================
+        function renderCategorySelects() {
+            const optionsHtml = state.categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            const genSelect = document.getElementById('exam-category-select');
+            if (genSelect) {
+                const prev = genSelect.value;
+                genSelect.innerHTML = optionsHtml;
+                if (state.categories.includes(prev)) genSelect.value = prev;
+            }
+
+            const histFilter = document.getElementById('history-category-filter');
+            if (histFilter) {
+                const prevH = histFilter.value;
+                histFilter.innerHTML = `<option value="ALL">전체 카테고리 보기</option>` + optionsHtml;
+                if (prevH === 'ALL' || state.categories.includes(prevH)) histFilter.value = prevH;
+            }
+
+            const wrongFilter = document.getElementById('wrong-category-filter');
+            if (wrongFilter) {
+                const prevW = wrongFilter.value;
+                wrongFilter.innerHTML = `<option value="ALL">전체 카테고리</option>` + optionsHtml;
+                if (prevW === 'ALL' || state.categories.includes(prevW)) wrongFilter.value = prevW;
+            }
+        }
+
+        function createCategory() {
+            const input = document.getElementById('new-category-input');
+            const name = input.value.trim();
+            if (!name) {
+                showToast('카테고리 이름을 입력해주세요.', 'error');
+                return;
+            }
+            if (state.categories.includes(name)) {
+                showToast('이미 존재하는 카테고리입니다.', 'error');
+                return;
+            }
+            state.categories.push(name);
+            input.value = '';
+            saveState();
+            renderCategorySelects();
+            renderExamsView();
+            showToast(`'${name}' 카테고리가 추가되었습니다.`, 'success');
+        }
+
+        function openRenameCategoryModal(oldName) {
+            const modal = document.getElementById('edit-modal');
+            document.getElementById('edit-modal-title').querySelector('span').textContent = '카테고리 이름 수정';
+            document.getElementById('edit-input-title').value = oldName;
+            document.getElementById('edit-category-wrapper').classList.add('hidden');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            document.getElementById('edit-save-btn').onclick = () => {
+                const newName = document.getElementById('edit-input-title').value.trim();
+                if (!newName) {
+                    showToast('이름을 입력해주세요.', 'error');
+                    return;
+                }
+                if (newName !== oldName && state.categories.includes(newName)) {
+                    showToast('이미 사용 중인 이름입니다.', 'error');
+                    return;
+                }
+                const idx = state.categories.indexOf(oldName);
+                if (idx !== -1) state.categories[idx] = newName;
+
+                // 기존 시험지, 기록, 오답노트 카테고리 일괄 업데이트
+                state.exams.forEach(e => { if (e.category === oldName) e.category = newName; });
+                state.history.forEach(h => { if (h.category === oldName) h.category = newName; });
+                state.wrongNotes.forEach(w => { if (w.category === oldName) w.category = newName; });
+
+                if (state.selectedExamFilter === oldName) state.selectedExamFilter = newName;
+
+                saveState();
+                closeEditModal();
+                renderCategorySelects();
+                renderExamsView();
+                showToast('카테고리 이름이 변경되었습니다.', 'success');
+            };
+        }
+
+        async function deleteCategory(catName) {
+            if (state.categories.length <= 1) {
+                showToast('최소 1개의 카테고리는 유지되어야 합니다.', 'error');
+                return;
+            }
+            const ok = await showConfirm('카테고리 삭제', `'${catName}' 카테고리를 삭제하시겠습니까? 해당 분류의 시험지는 '기타'(또는 첫 번째 카테고리)로 이동됩니다.`);
+            if (!ok) return;
+
+            state.categories = state.categories.filter(c => c !== catName);
+            const fallback = state.categories.includes('기타') ? '기타' : state.categories[0];
+
+            state.exams.forEach(e => { if (e.category === catName) e.category = fallback; });
+            state.history.forEach(h => { if (h.category === catName) h.category = fallback; });
+            state.wrongNotes.forEach(w => { if (w.category === catName) w.category = fallback; });
+
+            if (state.selectedExamFilter === catName) state.selectedExamFilter = 'ALL';
+
+            saveState();
+            renderCategorySelects();
+            renderExamsView();
+            showToast(`'${catName}' 카테고리가 삭제되었습니다.`, 'info');
+        }
+
+        function renderExamsView() {
+            // 카테고리 칩 목록 (수정/삭제 가능)
+            const chipsContainer = document.getElementById('category-chips-container');
+            chipsContainer.innerHTML = state.categories.map(cat => `
+                <div class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-pastelPurple-50/70 border border-pastelPurple-200/80 text-xs sm:text-sm font-bold text-slate-700">
+                    <span>${escapeHtml(cat)}</span>
+                    <button onclick="openRenameCategoryModal('${escapeHtml(cat)}')" class="p-1 rounded-lg text-slate-400 hover:text-pastelBlue-600 hover:bg-white transition" title="이름 수정">
+                        <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                    </button>
+                    <button onclick="deleteCategory('${escapeHtml(cat)}')" class="p-1 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-white transition" title="삭제">
+                        <i data-lucide="x" class="w-3.5 h-3.5"></i>
+                    </button>
+                </div>
+            `).join('');
+
+            // 필터 탭
+            const filterTabs = document.getElementById('exam-filter-tabs');
+            const allCats = ['ALL', ...state.categories];
+            filterTabs.innerHTML = allCats.map(cat => {
+                const isSelected = state.selectedExamFilter === cat;
+                const label = cat === 'ALL' ? `전체 (${state.exams.length})` : `${cat} (${state.exams.filter(e => e.category === cat).length})`;
+                return `
+                    <button onclick="selectExamFilter('${escapeHtml(cat)}')" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold shrink-0 transition ${isSelected ? 'pastel-gradient text-white shadow-2xs' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'}">
+                        ${escapeHtml(label)}
+                    </button>
+                `;
+            }).join('');
+
+            // 시험지 카드 목록
+            const grid = document.getElementById('exam-papers-grid');
+            const filteredExams = state.exams.filter(e => state.selectedExamFilter === 'ALL' || e.category === state.selectedExamFilter);
+
+            if (filteredExams.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full bg-white rounded-3xl p-12 text-center shadow-card border border-slate-100">
+                        <div class="w-14 h-14 mx-auto rounded-2xl pastel-gradient-soft text-pastelBlue-500 flex items-center justify-center mb-3">
+                            <i data-lucide="file-question" class="w-7 h-7"></i>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-700 mb-1">해당 카테고리에 생성된 시험지가 없습니다</h3>
+                        <p class="text-xs sm:text-sm text-slate-400 mb-4">PDF를 업로드하여 새로운 맞춤형 시험지를 생성해 보세요.</p>
+                        <button onclick="switchTab('generator')" class="px-5 py-2.5 rounded-xl text-xs font-bold text-white pastel-gradient">문제 생성하러 가기</button>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            grid.innerHTML = filteredExams.map(exam => {
+                const dateStr = new Date(exam.createdAt).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+                return `
+                    <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100 hover:border-pastelPurple-300 transition flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-pastelPurple-100 text-pastelPurple-600">${escapeHtml(exam.category)}</span>
+                                <div class="flex items-center gap-1">
+                                    <button onclick="openEditExamModal('${exam.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-pastelBlue-600 hover:bg-pastelBlue-50 transition" title="시험지 편집">
+                                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="deleteExamPaper('${exam.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition" title="시험지 삭제">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <h3 class="text-base font-extrabold text-slate-800 line-clamp-2 mb-2">${escapeHtml(exam.title)}</h3>
+                            <div class="flex items-center gap-3 text-xs text-slate-400 mb-5">
+                                <span>총 ${exam.questions.length}문항</span>
+                                <span>·</span>
+                                <span>${exam.subjectType === 'math' ? '수학 변형' : '빈칸·서술형'}</span>
+                                <span>·</span>
+                                <span>${dateStr}</span>
+                            </div>
+                        </div>
+                        <button onclick="startExam('${exam.id}')" class="w-full py-3 rounded-2xl text-xs sm:text-sm font-extrabold text-white pastel-gradient hover:opacity-95 transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="play" class="w-4 h-4"></i>
+                            <span>시험 응시하기</span>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function selectExamFilter(cat) {
+            state.selectedExamFilter = cat;
+            renderExamsView();
+        }
+
+        function openEditExamModal(examId) {
+            const exam = state.exams.find(e => e.id === examId);
+            if (!exam) return;
+
+            const modal = document.getElementById('edit-modal');
+            document.getElementById('edit-modal-title').querySelector('span').textContent = '시험지 정보 편집';
+            document.getElementById('edit-input-title').value = exam.title;
+            const catWrapper = document.getElementById('edit-category-wrapper');
+            catWrapper.classList.remove('hidden');
+
+            const catSelect = document.getElementById('edit-input-category');
+            catSelect.innerHTML = state.categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            catSelect.value = exam.category;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            document.getElementById('edit-save-btn').onclick = () => {
+                const newTitle = document.getElementById('edit-input-title').value.trim();
+                if (!newTitle) {
+                    showToast('시험지 제목을 입력해주세요.', 'error');
+                    return;
+                }
+                exam.title = newTitle;
+                exam.category = catSelect.value;
+                saveState();
+                closeEditModal();
+                renderExamsView();
+                showToast('시험지 정보가 수정되었습니다.', 'success');
+            };
+        }
+
+        async function deleteExamPaper(examId) {
+            const ok = await showConfirm('시험지 삭제', '이 시험지를 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.');
+            if (ok) {
+                state.exams = state.exams.filter(e => e.id !== examId);
+                saveState();
+                renderExamsView();
+                showToast('시험지가 삭제되었습니다.', 'info');
+            }
+        }
+
+        // 응시 기록 관리 (CRUD)
+        function renderHistoryView() {
+            renderCategorySelects();
+            const filterCat = document.getElementById('history-category-filter').value;
+            const container = document.getElementById('history-list-container');
+
+            const filtered = state.history.filter(h => filterCat === 'ALL' || h.category === filterCat);
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-3xl p-12 text-center shadow-card border border-slate-100">
+                        <div class="w-14 h-14 mx-auto rounded-2xl pastel-gradient-soft text-pastelPurple-500 flex items-center justify-center mb-3">
+                            <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+                        </div>
+                        <h3 class="text-base font-extrabold text-slate-700 mb-1">아직 응시 기록이 없습니다</h3>
+                        <p class="text-xs sm:text-sm text-slate-400">생성된 시험지에 응시하면 점수와 AI 성적 분석 리포트가 이곳에 기록됩니다.</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            container.innerHTML = filtered.map(rec => {
+                const dateStr = new Date(rec.date).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+                return `
+                    <div class="bg-white rounded-3xl p-5 shadow-card border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:border-pastelBlue-300 transition">
+                        <div class="space-y-1.5">
+                            <div class="flex flex-wrap items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-lg text-xs font-bold bg-pastelBlue-100 text-pastelBlue-600">${escapeHtml(rec.category)}</span>
+                                <span class="text-xs text-slate-400 font-medium">${dateStr}</span>
+                                <span class="text-xs text-slate-400">· 소요시간 ${formatSecondsKorean(rec.timeSpent)}</span>
+                            </div>
+                            <h3 class="text-base sm:text-lg font-extrabold text-slate-800">${escapeHtml(rec.title)}</h3>
+                            <div class="text-xs font-semibold text-slate-500">
+                                정답 <strong class="text-pastelPurple-600">${rec.correctCount}</strong> / ${rec.totalCount}문항
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end gap-3 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                            <div class="text-right mr-2">
+                                <div class="text-[11px] font-bold text-slate-400">점수</div>
+                                <div class="text-2xl font-extrabold bg-gradient-to-r from-pastelBlue-600 to-pastelPurple-600 bg-clip-text text-transparent">${rec.score}점</div>
+                            </div>
+                            <button onclick="openAnalysisReport('${rec.id}')" class="px-4 py-2.5 rounded-xl text-xs font-bold text-white pastel-gradient shadow-2xs hover:opacity-95 transition">
+                                분석·해설 보기
+                            </button>
+                            <button onclick="openEditHistoryModal('${rec.id}')" class="p-2.5 rounded-xl text-slate-400 hover:text-pastelBlue-600 hover:bg-pastelBlue-50 transition" title="응시기록 편집">
+                                <i data-lucide="edit-3" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="deleteHistoryRecord('${rec.id}')" class="p-2.5 rounded-xl text-slate-400 hover:text-rose-500 hover:bg-rose-50 transition" title="응시기록 삭제">
+                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function openEditHistoryModal(histId) {
+            const rec = state.history.find(h => h.id === histId);
+            if (!rec) return;
+
+            const modal = document.getElementById('edit-modal');
+            document.getElementById('edit-modal-title').querySelector('span').textContent = '응시 기록 편집';
+            document.getElementById('edit-input-title').value = rec.title;
+            const catWrapper = document.getElementById('edit-category-wrapper');
+            catWrapper.classList.remove('hidden');
+
+            const catSelect = document.getElementById('edit-input-category');
+            catSelect.innerHTML = state.categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');
+            catSelect.value = rec.category;
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            document.getElementById('edit-save-btn').onclick = () => {
+                const newTitle = document.getElementById('edit-input-title').value.trim();
+                if (!newTitle) {
+                    showToast('제목을 입력해주세요.', 'error');
+                    return;
+                }
+                rec.title = newTitle;
+                rec.category = catSelect.value;
+                saveState();
+                closeEditModal();
+                renderHistoryView();
+                showToast('응시 기록이 수정되었습니다.', 'success');
+            };
+        }
+
+        async function deleteHistoryRecord(histId) {
+            const ok = await showConfirm('응시기록 삭제', '이 응시 기록과 성적 분석 데이터를 삭제하시겠습니까?');
+            if (ok) {
+                state.history = state.history.filter(h => h.id !== histId);
+                saveState();
+                renderHistoryView();
+                showToast('응시 기록이 삭제되었습니다.', 'info');
+            }
+        }
+
+        function closeEditModal() {
+            const modal = document.getElementById('edit-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // =========================================================================
+        // 10. 앱 초기화 실행
+        // =========================================================================
+        window.addEventListener('DOMContentLoaded', () => {
+            loadState();
+            initUploadHandlers();
+            renderCategorySelects();
+            switchTab('generator');
+            lucide.createIcons();
+        });
+    </script>
+</body>
+</html>
